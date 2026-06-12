@@ -1,0 +1,2292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VECTR3D | 2D to 3D Extrusion Engine</title>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Three.js and Libraries via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-color: #040408;
+            --panel-bg: rgba(15, 15, 26, 0.75);
+            --panel-border: rgba(255, 255, 255, 0.06);
+            --accent-color: #00d4ff;
+            --accent-glow: rgba(0, 212, 255, 0.4);
+            --accent-purple: #7000ff;
+            --text-primary: #f3f3f6;
+            --text-secondary: #8e8e9f;
+            --card-bg: rgba(25, 25, 42, 0.6);
+            --card-active: rgba(0, 212, 255, 0.15);
+            --transition-speed: 0.3s;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+        }
+
+        /* App Container Layout */
+        .app-container {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+            padding: 20px;
+            gap: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Sidebar Container */
+        .sidebar {
+            width: 380px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+            overflow: hidden;
+            flex-shrink: 0;
+            z-index: 2;
+        }
+
+        .sidebar-header {
+            padding: 24px 24px 16px 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 6px;
+        }
+
+        .logo-icon {
+            color: var(--accent-color);
+            filter: drop-shadow(0 0 6px var(--accent-color));
+        }
+
+        .logo-text {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            background: linear-gradient(90deg, var(--text-primary), var(--accent-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo-subtitle {
+            font-size: 11px;
+            font-weight: 400;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        .sidebar-scrollable {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Custom Scrollbar for Sidebar */
+        .sidebar-scrollable::-webkit-scrollbar {
+            width: 6px;
+        }
+        .sidebar-scrollable::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .sidebar-scrollable::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+        .sidebar-scrollable::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Tabs Selection */
+        .tabs-nav {
+            display: flex;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 500;
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all var(--transition-speed) ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .tab-btn.active {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--accent-color);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .tab-btn:hover:not(.active) {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        /* Canvas Wrapper & Canvas CSS */
+        .canvas-section {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1;
+            background: #080812;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        .canvas-container.drawing-active {
+            border-color: rgba(0, 212, 255, 0.3);
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 0 10px rgba(0, 212, 255, 0.1);
+        }
+
+        #drawing-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        /* Upload Drag Drop Area */
+        .upload-zone {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: rgba(10, 10, 20, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+            z-index: 5;
+            border-radius: 12px;
+        }
+
+        .upload-zone.dragover {
+            background: rgba(0, 212, 255, 0.1);
+            border: 2px dashed var(--accent-color);
+        }
+
+        .upload-zone-icon {
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            transition: color var(--transition-speed) ease;
+        }
+
+        .upload-zone:hover .upload-zone-icon {
+            color: var(--accent-color);
+            transform: scale(1.05);
+        }
+
+        .upload-zone p {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .upload-zone span {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .upload-active-info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 6;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .upload-file-name {
+            color: var(--accent-color);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 180px;
+        }
+
+        .btn-remove-file {
+            background: transparent;
+            border: none;
+            color: #ff3b30;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .btn-remove-file:hover {
+            text-decoration: underline;
+        }
+
+        /* Board Toolbar (Undo/Clear/Status) */
+        .board-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .toolbar-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .tool-btn {
+            background: var(--card-bg);
+            border: 1px solid var(--panel-border);
+            color: var(--text-primary);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .tool-btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .tool-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .drawing-status {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin-right: 6px;
+            background: #ff9500;
+        }
+
+        .status-dot.closed {
+            background: #34c759;
+            box-shadow: 0 0 6px #34c759;
+        }
+
+        /* Primary Convert Button */
+        .btn-convert {
+            width: 100%;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-color));
+            color: #ffffff;
+            border: none;
+            padding: 14px;
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.2);
+            transition: all var(--transition-speed) ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            text-transform: uppercase;
+        }
+
+        .btn-convert:hover {
+            box-shadow: 0 6px 20px rgba(0, 212, 255, 0.4);
+            transform: translateY(-1px);
+            filter: brightness(1.1);
+        }
+
+        .btn-convert:active {
+            transform: translateY(1px);
+        }
+
+        .btn-convert:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+            filter: none;
+        }
+
+        /* Controls Section Group */
+        .controls-group {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding-top: 20px;
+        }
+
+        .group-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        /* Slider Controls */
+        .slider-control {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .slider-label {
+            color: var(--text-primary);
+        }
+
+        .slider-value {
+            color: var(--accent-color);
+            font-family: monospace;
+        }
+
+        .slider-wrapper {
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
+
+        .custom-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #121222;
+            outline: none;
+            transition: all var(--transition-speed) ease;
+            border: 1px solid rgba(255,255,255,0.02);
+        }
+
+        .custom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            border: 2px solid #ffffff;
+            cursor: pointer;
+            box-shadow: 0 0 8px var(--accent-color);
+            transition: transform 0.1s ease;
+        }
+
+        .custom-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .custom-slider::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            border: 2px solid #ffffff;
+            cursor: pointer;
+            box-shadow: 0 0 8px var(--accent-color);
+            transition: transform 0.1s ease;
+        }
+
+        .custom-slider::-moz-range-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Toggle / Toggle Switch */
+        .toggle-control {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .toggle-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 38px;
+            height: 20px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider-toggle {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #121222;
+            transition: .3s;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .slider-toggle:before {
+            position: absolute;
+            content: "";
+            height: 12px;
+            width: 12px;
+            left: 3px;
+            bottom: 3px;
+            background-color: var(--text-secondary);
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider-toggle {
+            background-color: rgba(0, 212, 255, 0.2);
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+
+        input:checked + .slider-toggle:before {
+            transform: translateX(18px);
+            background-color: var(--accent-color);
+            box-shadow: 0 0 6px var(--accent-color);
+        }
+
+        /* Material Grid */
+        .materials-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 6px;
+        }
+
+        .material-card {
+            background: var(--card-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .material-card.active {
+            border-color: var(--accent-color);
+            background: var(--card-active);
+            box-shadow: 0 0 12px rgba(0, 212, 255, 0.15);
+        }
+
+        .material-card.active .material-icon {
+            color: var(--accent-color);
+        }
+
+        .material-icon {
+            color: var(--text-secondary);
+            margin-bottom: 2px;
+            transition: color var(--transition-speed) ease;
+        }
+
+        .material-name {
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .material-desc {
+            font-size: 10px;
+            color: var(--text-secondary);
+        }
+
+        /* Color Panel Control */
+        .color-control {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .color-presets {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .color-preset {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .color-preset:hover {
+            transform: scale(1.15);
+        }
+
+        .color-preset.active {
+            border-color: #ffffff;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+            transform: scale(1.1);
+        }
+
+        .color-custom-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 4px;
+        }
+
+        .color-custom-btn {
+            background: var(--card-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-primary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-grow: 1;
+        }
+
+        .color-custom-preview {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: #ffffff;
+        }
+
+        #color-picker-input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+            position: absolute;
+        }
+
+        /* Footer and action button */
+        .sidebar-footer {
+            padding: 16px 24px 24px 24px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .btn-export {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+            border: 1px solid var(--panel-border);
+            padding: 11px;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-export:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .credits {
+            font-size: 10px;
+            color: var(--text-secondary);
+            text-align: center;
+            letter-spacing: 0.5px;
+        }
+
+        /* Viewer (Three.js Screen) */
+        .viewer-container {
+            flex-grow: 1;
+            background: rgba(10, 10, 18, 0.4);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+        }
+
+        #three-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Instructions overlay in viewer */
+        .viewer-overlay-instructions {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(10, 10, 20, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--panel-border);
+            padding: 10px 16px;
+            border-radius: 8px;
+            pointer-events: none;
+            font-size: 11px;
+            color: var(--text-secondary);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            z-index: 5;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        }
+
+        .instruction-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .instruction-icon {
+            color: var(--accent-color);
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: rgba(15, 15, 26, 0.85);
+            border-left: 4px solid var(--accent-color);
+            border-top: 1px solid var(--panel-border);
+            border-bottom: 1px solid var(--panel-border);
+            border-right: 1px solid var(--panel-border);
+            color: var(--text-primary);
+            padding: 12px 20px;
+            border-radius: 0 8px 8px 0;
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            backdrop-filter: blur(8px);
+            transform: translateX(120%);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast-success-icon {
+            color: #34c759;
+            filter: drop-shadow(0 0 2px rgba(52, 199, 89, 0.5));
+        }
+
+        /* Responsive Layout */
+        @media (max-width: 900px) {
+            body {
+                overflow: auto;
+            }
+            .app-container {
+                flex-direction: column;
+                height: auto;
+                min-height: 100vh;
+                padding: 12px;
+                gap: 12px;
+            }
+            .sidebar {
+                width: 100%;
+                max-height: none;
+                height: auto;
+            }
+            .viewer-container {
+                width: 100%;
+                height: 500px;
+                aspect-ratio: auto;
+            }
+            .toast-container {
+                bottom: 16px;
+                right: 16px;
+                left: 16px;
+            }
+            .toast {
+                border-radius: 8px;
+                border-left-width: 1px;
+                border-top-width: 4px;
+                border-top-color: var(--accent-color);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        
+        <!-- SIDEBAR PANEL -->
+        <aside class="sidebar">
+            <!-- Header -->
+            <div class="sidebar-header">
+                <div class="logo-container">
+                    <svg class="logo-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                        <polyline points="2 17 12 22 22 17"></polyline>
+                        <polyline points="2 12 12 17 22 12"></polyline>
+                    </svg>
+                    <h1 class="logo-text">VECTR3D</h1>
+                </div>
+                <div class="logo-subtitle">2D to 3D Extrusion Engine</div>
+            </div>
+
+            <!-- Scrollable Content -->
+            <div class="sidebar-scrollable">
+                
+                <!-- Tab Controls -->
+                <nav class="tabs-nav">
+                    <button class="tab-btn active" id="tab-draw-trigger">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                        Draw Mode
+                    </button>
+                    <button class="tab-btn" id="tab-upload-trigger">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        Upload Mode
+                    </button>
+                </nav>
+
+                <!-- 2D Canvas Workspace -->
+                <section class="canvas-section">
+                    <div class="canvas-container" id="workspace-container">
+                        <!-- Canvas element for both drawing & image trace display -->
+                        <canvas id="drawing-canvas" width="320" height="320"></canvas>
+                        
+                        <!-- Upload Overlay Zone (only active when Tab = Upload) -->
+                        <div class="upload-zone" id="drag-drop-zone" style="display: none;">
+                            <svg class="upload-zone-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                <polyline points="21 15 16 10 5 21"></polyline>
+                            </svg>
+                            <p>Drag & drop PNG/SVG image</p>
+                            <span>or click to browse local files</span>
+                            <input type="file" id="file-uploader" accept="image/png, image/jpeg, image/svg+xml" style="display: none;">
+                        </div>
+
+                        <!-- Active image metadata overlay -->
+                        <div class="upload-active-info" id="file-meta-bar" style="display: none;">
+                            <div class="upload-file-name" id="file-name-display">logo.png</div>
+                            <button class="btn-remove-file" id="file-remove-btn">Remove</button>
+                        </div>
+                    </div>
+
+                    <!-- Toolbar beneath workspace -->
+                    <div class="board-toolbar" id="draw-toolbar">
+                        <div class="toolbar-actions">
+                            <button class="tool-btn" id="btn-undo" title="Remove last point">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path></svg>
+                                Undo
+                            </button>
+                            <button class="tool-btn" id="btn-clear" title="Clear canvas">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                Clear
+                            </button>
+                        </div>
+                        <div class="drawing-status" id="drawing-status">
+                            <span class="status-dot" id="status-dot"></span>
+                            <span id="status-text">Draw shape (3+ pts)</span>
+                        </div>
+                    </div>
+
+                    <!-- Tracing controls (shown under canvas ONLY in upload mode) -->
+                    <div class="slider-control" id="trace-threshold-group" style="display: none;">
+                        <div class="slider-header">
+                            <span class="slider-label">Tracing Threshold</span>
+                            <span class="slider-value" id="trace-threshold-val">128</span>
+                        </div>
+                        <div class="slider-wrapper">
+                            <input type="range" class="custom-slider" id="trace-threshold" min="5" max="250" value="128">
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Conversion Trigger -->
+                <button class="btn-convert" id="btn-convert-3d">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                        <polyline points="2 17 12 22 22 17"></polyline>
+                        <polyline points="2 12 12 17 22 12"></polyline>
+                    </svg>
+                    Convert to 3D
+                </button>
+
+                <!-- Customizer Panel -->
+                <div class="controls-group">
+                    
+                    <div class="group-title">3D Parameters</div>
+                    
+                    <!-- Extrusion Depth -->
+                    <div class="slider-control">
+                        <div class="slider-header">
+                            <span class="slider-label">Extrusion Depth</span>
+                            <span class="slider-value" id="depth-val">50</span>
+                        </div>
+                        <div class="slider-wrapper">
+                            <input type="range" class="custom-slider" id="depth-slider" min="10" max="200" value="50">
+                        </div>
+                    </div>
+
+                    <!-- Bevel Toggle and Size -->
+                    <div class="toggle-control">
+                        <span class="toggle-label">Bevel Edges</span>
+                        <label class="switch">
+                            <input type="checkbox" id="bevel-toggle" checked>
+                            <span class="slider-toggle"></span>
+                        </label>
+                    </div>
+
+                    <div class="slider-control" id="bevel-size-group">
+                        <div class="slider-header">
+                            <span class="slider-label">Bevel Size</span>
+                            <span class="slider-value" id="bevel-val">4</span>
+                        </div>
+                        <div class="slider-wrapper">
+                            <input type="range" class="custom-slider" id="bevel-slider" min="1" max="15" value="4">
+                        </div>
+                    </div>
+                    
+                </div>
+
+                <!-- Appearance Panel -->
+                <div class="controls-group">
+                    <div class="group-title">Material Presets</div>
+                    
+                    <div class="materials-grid">
+                        <div class="material-card active" data-material="matte">
+                            <svg class="material-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10"></path></svg>
+                            <div class="material-name">Matte</div>
+                            <div class="material-desc">Low reflection</div>
+                        </div>
+                        <div class="material-card" data-material="metallic">
+                            <svg class="material-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10"></path><path d="M12 2a15.3 15.3 0 0 0-4 10 15.3 15.3 0 0 0 4 10"></path></svg>
+                            <div class="material-name">Metallic</div>
+                            <div class="material-desc">Chrome & gloss</div>
+                        </div>
+                        <div class="material-card" data-material="glass">
+                            <svg class="material-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                            <div class="material-name">Glass</div>
+                            <div class="material-desc">Physical refractions</div>
+                        </div>
+                        <div class="material-card" data-material="neon">
+                            <svg class="material-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline></svg>
+                            <div class="material-name">Neon glow</div>
+                            <div class="material-desc">Emissive light</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="controls-group">
+                    <div class="group-title">Model Color</div>
+                    
+                    <div class="color-control">
+                        <!-- Preset Colors -->
+                        <div class="color-presets">
+                            <div class="color-preset active" data-color="#00d4ff" style="background-color: #00d4ff;"></div>
+                            <div class="color-preset" data-color="#7000ff" style="background-color: #7000ff;"></div>
+                            <div class="color-preset" data-color="#ff007f" style="background-color: #ff007f;"></div>
+                            <div class="color-preset" data-color="#00ff88" style="background-color: #00ff88;"></div>
+                            <div class="color-preset" data-color="#ffaa00" style="background-color: #ffaa00;"></div>
+                            <div class="color-preset" data-color="#ffffff" style="background-color: #ffffff;"></div>
+                        </div>
+                        <!-- Custom Color input -->
+                        <div class="color-custom-row">
+                            <button class="color-custom-btn" id="custom-color-btn">
+                                <div class="color-custom-preview" id="custom-color-preview"></div>
+                                Custom color picker...
+                            </button>
+                            <input type="color" id="color-picker-input" value="#00d4ff">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Footer Action & Credits -->
+            <footer class="sidebar-footer">
+                <button class="btn-export" id="btn-export-image">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Export 3D Render (PNG)
+                </button>
+                <div class="credits">VECTR3D Studio &bull; Premium Extrusion Engine</div>
+            </footer>
+        </aside>
+
+        <!-- 3D VIEWPORT CONTAINER -->
+        <main class="viewer-container" id="viewer-container">
+            <!-- 3D canvas -->
+            <canvas id="three-canvas"></canvas>
+            
+            <!-- Instructions overlay -->
+            <div class="viewer-overlay-instructions">
+                <div class="instruction-item">
+                    <svg class="instruction-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"></circle></svg>
+                    <span><strong>Left Click + Drag:</strong> Orbit Camera</span>
+                </div>
+                <div class="instruction-item">
+                    <svg class="instruction-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"></circle></svg>
+                    <span><strong>Right Click + Drag:</strong> Pan</span>
+                </div>
+                <div class="instruction-item">
+                    <svg class="instruction-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10"></circle></svg>
+                    <span><strong>Scroll Wheel:</strong> Zoom</span>
+                </div>
+            </div>
+        </main>
+
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-holder"></div>
+
+    <script>
+        /* ----------------------------------------------------
+           1. CORE STATE VARIABLES & CONSTANTS
+           ---------------------------------------------------- */
+        const state = {
+            mode: 'draw', // 'draw' or 'upload'
+            drawPoints: [], // Points drawn by click {x, y}
+            isDrawClosed: false,
+            uploadPoints: [], // Traced outline points
+            uploadedImg: null,
+            uploadedImgMeta: { name: '', width: 0, height: 0, hasAlpha: false },
+            activePoints: [], // Points currently used for extrusion
+            
+            // 3D Parameters
+            depth: 50,
+            bevelEnabled: true,
+            bevelSize: 4,
+            materialType: 'matte', // 'matte', 'metallic', 'glass', 'neon'
+            modelColor: '#00d4ff',
+            
+            // Controls settings
+            isConverting: false
+        };
+
+        // UI references
+        const elCanvas = document.getElementById('drawing-canvas');
+        const ctx2d = elCanvas.getContext('2d');
+        const elWorkspaceContainer = document.getElementById('workspace-container');
+        
+        // Tab elements
+        const tabDrawTrigger = document.getElementById('tab-draw-trigger');
+        const tabUploadTrigger = document.getElementById('tab-upload-trigger');
+        const dragDropZone = document.getElementById('drag-drop-zone');
+        const fileUploader = document.getElementById('file-uploader');
+        const fileMetaBar = document.getElementById('file-meta-bar');
+        const fileNameDisplay = document.getElementById('file-name-display');
+        const fileRemoveBtn = document.getElementById('file-remove-btn');
+        
+        // Toolbar & triggers
+        const drawToolbar = document.getElementById('draw-toolbar');
+        const traceThresholdGroup = document.getElementById('trace-threshold-group');
+        const traceThresholdSlider = document.getElementById('trace-threshold');
+        const traceThresholdVal = document.getElementById('trace-threshold-val');
+        const btnUndo = document.getElementById('btn-undo');
+        const btnClear = document.getElementById('btn-clear');
+        const btnConvert3D = document.getElementById('btn-convert-3d');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+
+        // Parameter elements
+        const depthSlider = document.getElementById('depth-slider');
+        const depthVal = document.getElementById('depth-val');
+        const bevelToggle = document.getElementById('bevel-toggle');
+        const bevelSlider = document.getElementById('bevel-slider');
+        const bevelVal = document.getElementById('bevel-val');
+        const bevelSizeGroup = document.getElementById('bevel-size-group');
+        
+        // Design elements
+        const materialCards = document.querySelectorAll('.material-card');
+        const colorPresets = document.querySelectorAll('.color-preset');
+        const customColorBtn = document.getElementById('custom-color-btn');
+        const customColorPreview = document.getElementById('custom-color-preview');
+        const colorPickerInput = document.getElementById('color-picker-input');
+        const btnExportImage = document.getElementById('btn-export-image');
+
+        /* ----------------------------------------------------
+           2. TOAST SYSTEM
+           ---------------------------------------------------- */
+        function showToast(message) {
+            const container = document.getElementById('toast-holder');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerHTML = `
+                <svg class="toast-success-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>${message}</span>
+            `;
+            container.appendChild(toast);
+            
+            // Trigger animation
+            setTimeout(() => toast.classList.add('show'), 50);
+            
+            // Remove after 3s
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 400);
+            }, 3000);
+        }
+
+        /* ----------------------------------------------------
+           3. THREE.JS 3D SCENE INITIALIZATION & ANIMATION
+           ---------------------------------------------------- */
+        let scene, camera, renderer, controls;
+        let active3DObject = null;
+        let particles = null;
+        const viewerContainer = document.getElementById('viewer-container');
+        const threeCanvas = document.getElementById('three-canvas');
+
+        function init3D() {
+            // Setup scene
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x0a0a0f, 0.0025);
+
+            // Camera settings
+            camera = new THREE.PerspectiveCamera(45, viewerContainer.clientWidth / viewerContainer.clientHeight, 1, 1000);
+            camera.position.set(130, 110, 180);
+
+            // WebGLRenderer - preserveDrawingBuffer: true to allow capturing/exporting image
+            renderer = new THREE.WebGLRenderer({
+                canvas: threeCanvas,
+                antialias: true,
+                alpha: false,
+                preserveDrawingBuffer: true
+            });
+            renderer.setSize(viewerContainer.clientWidth, viewerContainer.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.setClearColor(0x0a0a0f, 1);
+
+            // Orbit controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 + 0.05; // Don't orbit below ground
+            controls.minDistance = 40;
+            controls.maxDistance = 400;
+            controls.target.set(0, 15, 0);
+
+            // Soft Ambient Light
+            const ambientLight = new THREE.AmbientLight(0x1a1a2e, 1.4);
+            scene.add(ambientLight);
+
+            // Main Directional Light (cating shadow)
+            const mainLight = new THREE.DirectionalLight(0xffffff, 1.8);
+            mainLight.position.set(120, 200, 80);
+            mainLight.castShadow = true;
+            mainLight.shadow.mapSize.width = 2048;
+            mainLight.shadow.mapSize.height = 2048;
+            mainLight.shadow.camera.near = 0.5;
+            mainLight.shadow.camera.far = 400;
+            const d = 100;
+            mainLight.shadow.camera.left = -d;
+            mainLight.shadow.camera.right = d;
+            mainLight.shadow.camera.top = d;
+            mainLight.shadow.camera.bottom = -d;
+            mainLight.shadow.bias = -0.0005;
+            scene.add(mainLight);
+
+            // Secondary Glow / Rim Light
+            const rimLight = new THREE.DirectionalLight(0x00d4ff, 1.2);
+            rimLight.position.set(-100, 60, -80);
+            scene.add(rimLight);
+
+            // Soft Pointlight near model floor
+            const floorGlowLight = new THREE.PointLight(0x00d4ff, 0.4, 150);
+            floorGlowLight.position.set(0, 10, 0);
+            scene.add(floorGlowLight);
+
+            // Ground Floor Shadow Receiver Plane
+            const shadowFloorGeo = new THREE.PlaneGeometry(800, 800);
+            const shadowFloorMat = new THREE.ShadowMaterial({ opacity: 0.45 });
+            const shadowFloor = new THREE.Mesh(shadowFloorGeo, shadowFloorMat);
+            shadowFloor.rotation.x = -Math.PI / 2;
+            shadowFloor.position.y = -0.2;
+            shadowFloor.receiveShadow = true;
+            scene.add(shadowFloor);
+
+            // Floor Blueprint Grid
+            const gridHelper = new THREE.GridHelper(400, 40, 0x00d4ff, 0x14142b);
+            gridHelper.position.y = -0.1;
+            gridHelper.material.opacity = 0.35;
+            gridHelper.material.transparent = true;
+            scene.add(gridHelper);
+
+            // Initialize Floating particles
+            createParticles();
+
+            // Load default Star Shape
+            loadDefaultStar();
+
+            // Resize event listener
+            window.addEventListener('resize', onResize);
+
+            // Run rendering loop
+            animate();
+        }
+
+        // Floating dust particle effect
+        function createParticles() {
+            const particleCount = 250;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const velocities = [];
+
+            for (let i = 0; i < particleCount; i++) {
+                // Spread particles in box
+                positions[i * 3] = (Math.random() - 0.5) * 350;     // x
+                positions[i * 3 + 1] = Math.random() * 150;          // y
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 350; // z
+                
+                velocities.push({
+                    x: (Math.random() - 0.5) * 0.05,
+                    y: Math.random() * 0.12 + 0.03, // floating upwards
+                    z: (Math.random() - 0.5) * 0.05
+                });
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+            // Custom canvas texture for a circular soft glow point particle
+            const pCanvas = document.createElement('canvas');
+            pCanvas.width = 16;
+            pCanvas.height = 16;
+            const pCtx = pCanvas.getContext('2d');
+            const gradient = pCtx.createRadialGradient(8, 8, 0, 8, 8, 8);
+            gradient.addColorStop(0, 'rgba(0, 212, 255, 1)');
+            gradient.addColorStop(0.3, 'rgba(0, 212, 255, 0.4)');
+            gradient.addColorStop(1, 'rgba(0, 212, 255, 0)');
+            pCtx.fillStyle = gradient;
+            pCtx.fillRect(0, 0, 16, 16);
+            const pTexture = new THREE.CanvasTexture(pCanvas);
+
+            const material = new THREE.PointsMaterial({
+                size: 2.2,
+                map: pTexture,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                opacity: 0.6
+            });
+
+            particles = {
+                system: new THREE.Points(geometry, material),
+                velocities: velocities,
+                count: particleCount
+            };
+            
+            scene.add(particles.system);
+        }
+
+        // Render loop
+        let lastTime = 0;
+        function animate(timestamp = 0) {
+            requestAnimationFrame(animate);
+            
+            const delta = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+
+            // Update OrbitControls
+            controls.update();
+
+            // Animate floating dust particles
+            if (particles) {
+                const posArr = particles.system.geometry.attributes.position.array;
+                for (let i = 0; i < particles.count; i++) {
+                    const idx = i * 3;
+                    // Move
+                    posArr[idx] += particles.velocities[i].x;
+                    posArr[idx + 1] += particles.velocities[i].y;
+                    posArr[idx + 2] += particles.velocities[i].z;
+
+                    // Boundary reset
+                    if (posArr[idx + 1] > 150) {
+                        posArr[idx + 1] = 0;
+                        posArr[idx] = (Math.random() - 0.5) * 350;
+                        posArr[idx + 2] = (Math.random() - 0.5) * 350;
+                    }
+                }
+                particles.system.geometry.attributes.position.needsUpdate = true;
+            }
+
+            // Slowly rotate the model if user is not actively interacting
+            if (active3DObject && !controls.state === -1) {
+                // Rotation
+                active3DObject.rotation.y += 0.005;
+            } else if (active3DObject) {
+                active3DObject.rotation.y += 0.003; // Auto slow rotation anyway
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function onResize() {
+            camera.aspect = viewerContainer.clientWidth / viewerContainer.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(viewerContainer.clientWidth, viewerContainer.clientHeight);
+        }
+
+        /* ----------------------------------------------------
+           4. EXTRACT SHAPES & EXTRUSION BUILDER
+           ---------------------------------------------------- */
+        
+        // Helper to generate Material based on controls
+        function buildMaterial(colorHex, type) {
+            const color = new THREE.Color(colorHex);
+            switch (type) {
+                case 'metallic':
+                    return new THREE.MeshStandardMaterial({
+                        color: color,
+                        metalness: 0.9,
+                        roughness: 0.15,
+                        roughnessMap: null,
+                        metalnessMap: null,
+                        envMapIntensity: 1.0,
+                        flatShading: false
+                    });
+                case 'glass':
+                    return new THREE.MeshPhysicalMaterial({
+                        color: color,
+                        metalness: 0.1,
+                        roughness: 0.05,
+                        transmission: 0.9,
+                        thickness: 6.0,
+                        transparent: true,
+                        opacity: 0.8,
+                        ior: 1.52,
+                        side: THREE.DoubleSide
+                    });
+                case 'neon':
+                    return new THREE.MeshStandardMaterial({
+                        color: color,
+                        emissive: color,
+                        emissiveIntensity: 1.8,
+                        roughness: 0.3,
+                        metalness: 0.1
+                    });
+                case 'matte':
+                default:
+                    return new THREE.MeshStandardMaterial({
+                        color: color,
+                        metalness: 0.1,
+                        roughness: 0.75,
+                        flatShading: false
+                    });
+            }
+        }
+
+        // Extrudes shape points into 3D Mesh
+        function extrudePointsTo3D(rawPoints, triggerBloom = true) {
+            if (!rawPoints || rawPoints.length < 3) return;
+
+            // Filter out duplicate or extremely close consecutive points
+            const points = [];
+            for (let i = 0; i < rawPoints.length; i++) {
+                const p = rawPoints[i];
+                if (points.length > 0) {
+                    const prev = points[points.length - 1];
+                    if (Math.hypot(p.x - prev.x, p.y - prev.y) < 1.0) {
+                        continue; // Skip duplicate point
+                    }
+                }
+                points.push(p);
+            }
+            
+            // Also check distance between first and last point (since shape is closed)
+            if (points.length >= 3) {
+                const first = points[0];
+                const last = points[points.length - 1];
+                if (Math.hypot(first.x - last.x, first.y - last.y) < 1.0) {
+                    points.pop(); // Remove last duplicate point if it matches the start point
+                }
+            }
+
+            if (points.length < 3) return;
+
+            // Remove existing mesh
+            if (active3DObject) {
+                scene.remove(active3DObject);
+                active3DObject.traverse(child => {
+                    if (child.isMesh) {
+                        child.geometry.dispose();
+                        if (Array.isArray(child.material)) {
+                            child.material.forEach(m => m.dispose());
+                        } else {
+                            child.material.dispose();
+                        }
+                    }
+                });
+            }
+
+            // 1. Calculate bounding box of 2D points to center coordinates in X & Y
+            let minX = Infinity, maxX = -Infinity;
+            let minY = Infinity, maxY = -Infinity;
+            points.forEach(p => {
+                if (p.x < minX) minX = p.x;
+                if (p.x > maxX) maxX = p.x;
+                if (p.y < minY) minY = p.y;
+                if (p.y > maxY) maxY = p.y;
+            });
+
+            const width = maxX - minX;
+            const height = maxY - minY;
+            const centerX = (minX + maxX) / 2;
+            const centerY = (minY + maxY) / 2;
+
+            // Scale factor to make the object fit nicely inside ~75 units boundary box in 3D
+            const scale = 75 / Math.max(width, height, 1);
+
+            // 2. Build THREE.Shape from points (center around 0,0 local origin)
+            const shape = new THREE.Shape();
+            shape.moveTo((points[0].x - centerX) * scale, -(points[0].y - centerY) * scale);
+            for (let i = 1; i < points.length; i++) {
+                shape.lineTo((points[i].x - centerX) * scale, -(points[i].y - centerY) * scale);
+            }
+            shape.closePath();
+
+            // 3. Extrusion configuration
+            const targetDepth = state.depth;
+            const bevelSize = state.bevelEnabled ? state.bevelSize : 0;
+            const bevelThickness = state.bevelEnabled ? state.bevelSize : 0;
+
+            const extrudeSettings = {
+                depth: targetDepth,
+                bevelEnabled: state.bevelEnabled,
+                bevelSegments: 4,
+                steps: 1,
+                bevelSize: bevelSize / 10, // scaled down to fit scale factor
+                bevelThickness: bevelThickness / 10
+            };
+
+            // 4. Create geometry
+            const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+            
+            // Apply materials. Three.js ExtrudeGeometry returns 2 material slots (index 0: face, index 1: bevels/sides)
+            const material = buildMaterial(state.modelColor, state.materialType);
+            
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+
+            // 5. Structure and Position mesh
+            // ExtrudeGeometry extrudes along the Z axis starting at z = 0 to z = depth.
+            // We rotate it around X by -Math.PI / 2 so the base shape is flat on the X-Z ground plane,
+            // and the extrusion height expands upward in the Y direction.
+            mesh.rotation.x = -Math.PI / 2;
+            
+            // Centering height. If target depth is 50, local base starts at z=0 (which is y=0 world).
+            // Let's create an outer container group to control world pivot rotation,
+            // and place the mesh inside it centered in XZ but grounded on floor y=0.
+            const containerGroup = new THREE.Group();
+            
+            // Adjust local offset of mesh inside group:
+            // The geometry is centered in X & Y already, but starts at Z=0.
+            // We position the mesh at y=0, so the base is sitting exactly on the floor!
+            mesh.position.set(0, 0, 0);
+            containerGroup.add(mesh);
+            containerGroup.position.set(0, 0, 0);
+            
+            scene.add(containerGroup);
+            active3DObject = containerGroup;
+
+            // 6. Extrusion Animation Bloom (rising from floor using scale.z)
+            if (triggerBloom) {
+                mesh.scale.z = 0.001; // start flat
+                
+                // Animate rising up
+                gsap.to(mesh.scale, {
+                    z: 1,
+                    duration: 1.4,
+                    ease: "power3.out",
+                    onComplete: () => {
+                        showToast("Shape converted successfully!");
+                    }
+                });
+            } else {
+                mesh.scale.z = 1;
+            }
+        }
+
+        // Live geometry updates without bloom (when sliding settings)
+        function update3DGeometry() {
+            if (!state.activePoints || state.activePoints.length < 3) return;
+            extrudePointsTo3D(state.activePoints, false);
+        }
+
+        // Loads a default 5-point star on app startup
+        function loadDefaultStar() {
+            const points = [];
+            const centerX = 160;
+            const centerY = 160;
+            const outerRadius = 80;
+            const innerRadius = 32;
+            const teeth = 5;
+
+            for (let i = 0; i < teeth * 2; i++) {
+                const angle = (i * Math.PI) / teeth - Math.PI / 2;
+                const r = (i % 2 === 0) ? outerRadius : innerRadius;
+                points.push({
+                    x: centerX + r * Math.cos(angle),
+                    y: centerY + r * Math.sin(angle)
+                });
+            }
+
+            state.drawPoints = points;
+            state.isDrawClosed = true;
+            state.activePoints = points;
+
+            // Load to 3D without triggering toast notification instantly on startup
+            extrudePointsTo3D(state.activePoints, true);
+            redraw2DCanvas();
+        }
+
+        /* ----------------------------------------------------
+           5. 2D BLUEPRINT CANVAS DRAWING WORKSPACE
+           ---------------------------------------------------- */
+        
+        // Check distance between two 2D points
+        function dist2D(p1, p2) {
+            return Math.hypot(p1.x - p2.x, p1.y - p2.y);
+        }
+
+        let mousePos = { x: 0, y: 0 };
+        let isMouseOverCanvas = false;
+
+        // Set cursor styling and handles live drawing feedback
+        function handleMouseMove(e) {
+            const rect = elCanvas.getBoundingClientRect();
+            // Scale coords properly according to canvas display dimensions
+            mousePos.x = (e.clientX - rect.left) * (elCanvas.width / rect.width);
+            mousePos.y = (e.clientY - rect.top) * (elCanvas.height / rect.height);
+            
+            isMouseOverCanvas = true;
+            
+            if (state.mode === 'draw' && !state.isDrawClosed) {
+                redraw2DCanvas();
+            }
+        }
+
+        function handleMouseDown(e) {
+            if (state.mode !== 'draw' || state.isDrawClosed) return;
+            
+            // Check if clicking near the first point to close the shape
+            if (state.drawPoints.length >= 3) {
+                const startPt = state.drawPoints[0];
+                if (dist2D(mousePos, startPt) < 14) {
+                    state.isDrawClosed = true;
+                    state.activePoints = [...state.drawPoints];
+                    updateDrawingStatus();
+                    redraw2DCanvas();
+                    return;
+                }
+            }
+
+            // Otherwise, append new point
+            state.drawPoints.push({ x: mousePos.x, y: mousePos.y });
+            updateDrawingStatus();
+            redraw2DCanvas();
+        }
+
+        function handleDoubleClick() {
+            if (state.mode !== 'draw' || state.isDrawClosed || state.drawPoints.length < 3) return;
+            state.isDrawClosed = true;
+            state.activePoints = [...state.drawPoints];
+            updateDrawingStatus();
+            redraw2DCanvas();
+        }
+
+        function updateDrawingStatus() {
+            if (state.isDrawClosed) {
+                statusDot.className = 'status-dot closed';
+                statusText.innerText = 'Shape closed';
+                btnConvert3D.disabled = false;
+                btnUndo.disabled = true;
+            } else {
+                statusDot.className = 'status-dot';
+                const count = state.drawPoints.length;
+                if (count === 0) {
+                    statusText.innerText = 'Click to place point 1';
+                    btnConvert3D.disabled = true;
+                    btnUndo.disabled = true;
+                } else if (count < 3) {
+                    statusText.innerText = `Need ${3 - count} more points`;
+                    btnConvert3D.disabled = true;
+                    btnUndo.disabled = false;
+                } else {
+                    statusText.innerText = 'Double-click/Start-pt to close';
+                    btnConvert3D.disabled = true;
+                    btnUndo.disabled = false;
+                }
+            }
+        }
+
+        // Draws the current workspace grid, drawing paths, and points
+        function redraw2DCanvas() {
+            ctx2d.clearRect(0, 0, elCanvas.width, elCanvas.height);
+
+            // 1. Draw Blueprint grid lines
+            ctx2d.strokeStyle = 'rgba(0, 212, 255, 0.06)';
+            ctx2d.lineWidth = 1;
+            const gridSize = 20;
+            for (let x = 0; x < elCanvas.width; x += gridSize) {
+                ctx2d.beginPath();
+                ctx2d.moveTo(x, 0);
+                ctx2d.lineTo(x, elCanvas.height);
+                ctx2d.stroke();
+            }
+            for (let y = 0; y < elCanvas.height; y += gridSize) {
+                ctx2d.beginPath();
+                ctx2d.moveTo(0, y);
+                ctx2d.lineTo(elCanvas.width, y);
+                ctx2d.stroke();
+            }
+
+            // Center lines
+            ctx2d.strokeStyle = 'rgba(0, 212, 255, 0.12)';
+            ctx2d.beginPath();
+            ctx2d.moveTo(elCanvas.width / 2, 0);
+            ctx2d.lineTo(elCanvas.width / 2, elCanvas.height);
+            ctx2d.moveTo(0, elCanvas.height / 2);
+            ctx2d.lineTo(elCanvas.width, elCanvas.height / 2);
+            ctx2d.stroke();
+
+            // 2. Mode drawing rendering
+            if (state.mode === 'draw') {
+                const count = state.drawPoints.length;
+                if (count === 0) return;
+
+                // Draw connecting lines
+                ctx2d.strokeStyle = 'var(--accent-color)';
+                ctx2d.lineWidth = 2.5;
+                ctx2d.shadowColor = 'var(--accent-color)';
+                ctx2d.shadowBlur = 4;
+                ctx2d.beginPath();
+                ctx2d.moveTo(state.drawPoints[0].x, state.drawPoints[0].y);
+                
+                for (let i = 1; i < count; i++) {
+                    ctx2d.lineTo(state.drawPoints[i].x, state.drawPoints[i].y);
+                }
+                
+                if (state.isDrawClosed) {
+                    ctx2d.closePath();
+                    ctx2d.stroke();
+                    // Semi-transparent shape fill
+                    ctx2d.fillStyle = 'rgba(0, 212, 255, 0.06)';
+                    ctx2d.fill();
+                } else {
+                    ctx2d.stroke();
+
+                    // Dashed line from last point to mouse
+                    if (isMouseOverCanvas) {
+                        ctx2d.shadowBlur = 0;
+                        ctx2d.strokeStyle = 'rgba(0, 212, 255, 0.4)';
+                        ctx2d.setLineDash([4, 4]);
+                        ctx2d.beginPath();
+                        ctx2d.moveTo(state.drawPoints[count - 1].x, state.drawPoints[count - 1].y);
+                        ctx2d.lineTo(mousePos.x, mousePos.y);
+                        ctx2d.stroke();
+                        ctx2d.setLineDash([]); // Reset dash
+                    }
+                }
+                ctx2d.shadowBlur = 0;
+
+                // Draw vertices
+                state.drawPoints.forEach((p, index) => {
+                    ctx2d.beginPath();
+                    ctx2d.arc(p.x, p.y, 4.5, 0, Math.PI * 2);
+                    
+                    if (index === 0 && !state.isDrawClosed) {
+                        // Pulse animation or large guide ring on start point
+                        ctx2d.fillStyle = '#34c759'; // green start
+                        ctx2d.strokeStyle = '#ffffff';
+                        ctx2d.lineWidth = 1.5;
+                        
+                        // Check cursor hover proximity
+                        const isHovered = isMouseOverCanvas && dist2D(mousePos, p) < 14;
+                        ctx2d.beginPath();
+                        ctx2d.arc(p.x, p.y, isHovered ? 8 : 6, 0, Math.PI * 2);
+                        ctx2d.stroke();
+                    } else {
+                        ctx2d.fillStyle = 'var(--accent-color)';
+                    }
+                    ctx2d.fill();
+                });
+            } 
+            // 3. Upload Mode rendering
+            else if (state.mode === 'upload' && state.uploadedImg) {
+                // Draw image semi-transparently
+                ctx2d.globalAlpha = 0.25;
+                ctx2d.drawImage(state.uploadedImg, 0, 0, elCanvas.width, elCanvas.height);
+                ctx2d.globalAlpha = 1.0;
+
+                // Draw traced outline
+                const pts = state.uploadPoints;
+                if (pts && pts.length >= 3) {
+                    ctx2d.strokeStyle = 'var(--accent-color)';
+                    ctx2d.shadowColor = 'var(--accent-color)';
+                    ctx2d.shadowBlur = 6;
+                    ctx2d.lineWidth = 3;
+                    ctx2d.beginPath();
+                    ctx2d.moveTo(pts[0].x, pts[0].y);
+                    for (let i = 1; i < pts.length; i++) {
+                        ctx2d.lineTo(pts[i].x, pts[i].y);
+                    }
+                    ctx2d.closePath();
+                    ctx2d.stroke();
+                    ctx2d.shadowBlur = 0;
+
+                    // Fill shape
+                    ctx2d.fillStyle = 'rgba(0, 212, 255, 0.08)';
+                    ctx2d.fill();
+
+                    // Render traced points
+                    ctx2d.fillStyle = '#ffffff';
+                    pts.forEach(p => {
+                        ctx2d.beginPath();
+                        ctx2d.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+                        ctx2d.fill();
+                    });
+                }
+            }
+        }
+
+        /* ----------------------------------------------------
+           6. IMAGE PROCESSING & EDGE DETECTION TRACING
+           ---------------------------------------------------- */
+        
+        // Ramer-Douglas-Peucker (RDP) Algorithm to simplify outline polygon
+        function getSqDist(p1, p2) {
+            return (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
+        }
+
+        function getSqSegDist(p, p1, p2) {
+            let x = p1.x;
+            let y = p1.y;
+            let dx = p2.x - x;
+            let dy = p2.y - y;
+
+            if (dx !== 0 || dy !== 0) {
+                let t = ((p.x - x) * dx + (p.y - y) * dy) / (dx * dx + dy * dy);
+                if (t > 1) {
+                    x = p2.x;
+                    y = p2.y;
+                } else if (t > 0) {
+                    x += dx * t;
+                    y += dy * t;
+                }
+            }
+            return getSqDist(p, { x, y });
+        }
+
+        function rdpSimplify(points, sqEpsilon) {
+            const len = points.length;
+            if (len <= 2) return points;
+            
+            let maxSqDist = 0;
+            let index = 0;
+            const end = len - 1;
+
+            for (let i = 1; i < end; i++) {
+                const sqDist = getSqSegDist(points[i], points[0], points[end]);
+                if (sqDist > maxSqDist) {
+                    maxSqDist = sqDist;
+                    index = i;
+                }
+            }
+
+            if (maxSqDist > sqEpsilon) {
+                const results1 = rdpSimplify(points.slice(0, index + 1), sqEpsilon);
+                const results2 = rdpSimplify(points.slice(index), sqEpsilon);
+                return results1.slice(0, results1.length - 1).concat(results2);
+            } else {
+                return [points[0], points[end]];
+            }
+        }
+
+        // Moore-Neighbor Contour Tracing Algorithm
+        function traceBoundary(width, height, isForegroundGrid) {
+            // Find starting pixel (scanning top-to-bottom, left-to-right)
+            let startX = -1, startY = -1;
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    if (isForegroundGrid[y * width + x]) {
+                        // Must be a border pixel (at least one neighbor is empty)
+                        if (!isForegroundGrid[(y-1)*width + x] || !isForegroundGrid[(y+1)*width + x] ||
+                            !isForegroundGrid[y*width + x-1] || !isForegroundGrid[y*width + x+1]) {
+                            startX = x;
+                            startY = y;
+                            break;
+                        }
+                    }
+                }
+                if (startX !== -1) break;
+            }
+
+            if (startX === -1) return [];
+
+            const contour = [];
+            let cx = startX;
+            let cy = startY;
+
+            // 8 directions mapping (0: Up, 1: Up-Right, 2: Right, etc)
+            const dx = [0, 1, 1, 1, 0, -1, -1, -1];
+            const dy = [-1, -1, 0, 1, 1, 1, 0, -1];
+            
+            // Entering direction (started scanning from top-left, so we entered from the left)
+            let backtrackDir = 6; 
+            let loopCount = 0;
+            const maxLoops = width * height * 2;
+
+            while (loopCount < maxLoops) {
+                contour.push({ x: cx, y: cy });
+
+                let foundNext = false;
+                for (let i = 0; i < 8; i++) {
+                    const dir = (backtrackDir + i) % 8;
+                    const nx = cx + dx[dir];
+                    const ny = cy + dy[dir];
+
+                    if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                        if (isForegroundGrid[ny * width + nx]) {
+                            cx = nx;
+                            cy = ny;
+                            // Update entering back-track dir (opposite direction + 1 clockwise)
+                            backtrackDir = (dir + 5) % 8; 
+                            foundNext = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!foundNext) break;
+                // Loop closed condition
+                if (cx === startX && cy === startY) break;
+                loopCount++;
+            }
+
+            return contour;
+        }
+
+        // Scans entire grid, isolates separate blobs, returns the outline of the largest blob
+        function findLargestBlobOutline(width, height, isForegroundGrid) {
+            const visited = new Uint8Array(width * height);
+            let largestContour = [];
+
+            const dx = [0, 1, 1, 1, 0, -1, -1, -1];
+            const dy = [-1, -1, 0, 1, 1, 1, 0, -1];
+
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    const idx = y * width + x;
+                    if (isForegroundGrid[idx] && !visited[idx]) {
+                        // Found a boundary, let's check if it's outline
+                        // Simple boundary trace
+                        const contour = [];
+                        let cx = x;
+                        let cy = y;
+                        let backtrackDir = 6;
+                        let loop = 0;
+                        const limit = width * height;
+
+                        while (loop < limit) {
+                            contour.push({ x: cx, y: cy });
+                            visited[cy * width + cx] = 1;
+
+                            let next = false;
+                            for (let i = 0; i < 8; i++) {
+                                const dir = (backtrackDir + i) % 8;
+                                const nx = cx + dx[dir];
+                                const ny = cy + dy[dir];
+                                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                    if (isForegroundGrid[ny * width + nx]) {
+                                        cx = nx;
+                                        cy = ny;
+                                        backtrackDir = (dir + 5) % 8;
+                                        next = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (!next) break;
+                            if (cx === x && cy === y) break;
+                            loop++;
+                        }
+
+                        // Mark points on path as visited
+                        contour.forEach(p => { visited[p.y * width + p.x] = 1; });
+
+                        if (contour.length > largestContour.length) {
+                            largestContour = contour;
+                        }
+                    }
+                }
+            }
+
+            return largestContour;
+        }
+
+        // Processes loaded image data & extracts outline vertices
+        function traceUploadedImage() {
+            if (!state.uploadedImg) return;
+
+            // 1. Setup offscreen canvas to scale and analyze pixels
+            const size = 320;
+            const offCanvas = document.createElement('canvas');
+            offCanvas.width = size;
+            offCanvas.height = size;
+            const offCtx = offCanvas.getContext('2d');
+            
+            // Draw image scaled to fit 320x320 box keeping aspect ratio
+            const img = state.uploadedImg;
+            const scale = Math.min(size / img.width, size / img.height);
+            const w = img.width * scale;
+            const h = img.height * scale;
+            const ox = (size - w) / 2;
+            const oy = (size - h) / 2;
+
+            // Fill canvas with white/black background first or transparency
+            offCtx.fillStyle = 'rgba(0,0,0,0)';
+            offCtx.fillRect(0,0,size,size);
+            offCtx.drawImage(img, ox, oy, w, h);
+
+            const imgData = offCtx.getImageData(0, 0, size, size);
+            const data = imgData.data;
+
+            // 2. Scan to see if transparency is used (e.g. transparent PNG)
+            let hasAlpha = false;
+            for (let i = 3; i < data.length; i += 4) {
+                if (data[i] < 220) {
+                    hasAlpha = true;
+                    break;
+                }
+            }
+            state.uploadedImgMeta.hasAlpha = hasAlpha;
+
+            // 3. Scan border pixels to determine background brightness if not transparent
+            let borderLumaSum = 0;
+            let borderCount = 0;
+            for (let x = 0; x < size; x++) {
+                // top row
+                let i1 = x * 4;
+                borderLumaSum += (0.299 * data[i1] + 0.587 * data[i1+1] + 0.114 * data[i1+2]);
+                // bottom row
+                let i2 = ((size - 1) * size + x) * 4;
+                borderLumaSum += (0.299 * data[i2] + 0.587 * data[i2+1] + 0.114 * data[i2+2]);
+                borderCount += 2;
+            }
+            for (let y = 1; y < size - 1; y++) {
+                // left column
+                let i1 = (y * size) * 4;
+                borderLumaSum += (0.299 * data[i1] + 0.587 * data[i1+1] + 0.114 * data[i1+2]);
+                // right column
+                let i2 = (y * size + size - 1) * 4;
+                borderLumaSum += (0.299 * data[i2] + 0.587 * data[i2+1] + 0.114 * data[i2+2]);
+                borderCount += 2;
+            }
+            const avgBorderLuma = borderLumaSum / borderCount;
+            const isLightBg = avgBorderLuma > 127;
+
+            // 4. Generate binary mask (foreground / background)
+            const isForeground = new Uint8Array(size * size);
+            const threshold = parseInt(traceThresholdSlider.value, 10);
+
+            for (let i = 0; i < size * size; i++) {
+                const idx = i * 4;
+                const r = data[idx];
+                const g = data[idx+1];
+                const b = data[idx+2];
+                const a = data[idx+3];
+
+                if (hasAlpha) {
+                    // Transparent PNG: threshold filters alpha opacity
+                    isForeground[i] = a > threshold;
+                } else {
+                    // Opaque JPG: threshold filters brightness
+                    const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+                    isForeground[i] = isLightBg ? (luma < threshold) : (luma > threshold);
+                }
+            }
+
+            // 5. Detect and trace outline of largest foreground component
+            const outline = findLargestBlobOutline(size, size, isForeground);
+            
+            // 6. Simplify outline using RDP
+            // An epsilon value of 1.4 - 2.0 pixels removes pixelated steps while preserving general contours
+            const simplified = rdpSimplify(outline, 2.0); // epsilon squared = 2.0
+            
+            state.uploadPoints = simplified;
+            state.activePoints = simplified;
+            
+            // Toggle convert button availability
+            btnConvert3D.disabled = simplified.length < 3;
+
+            redraw2DCanvas();
+        }
+
+        /* ----------------------------------------------------
+           7. EVENT LISTENERS & UI LOGIC BINDINGS
+           ---------------------------------------------------- */
+        
+        function setupUIHandlers() {
+            
+            // Tab Toggling
+            tabDrawTrigger.addEventListener('click', () => {
+                if (state.mode === 'draw') return;
+                state.mode = 'draw';
+                tabDrawTrigger.classList.add('active');
+                tabUploadTrigger.classList.remove('active');
+                
+                // Show Draw, Hide Upload
+                dragDropZone.style.display = 'none';
+                fileMetaBar.style.display = 'none';
+                drawToolbar.style.display = 'flex';
+                traceThresholdGroup.style.display = 'none';
+                elCanvas.classList.add('drawing-active');
+
+                state.activePoints = state.isDrawClosed ? state.drawPoints : [];
+                updateDrawingStatus();
+                redraw2DCanvas();
+            });
+
+            tabUploadTrigger.addEventListener('click', () => {
+                if (state.mode === 'upload') return;
+                state.mode = 'upload';
+                tabUploadTrigger.classList.add('active');
+                tabDrawTrigger.classList.remove('active');
+                
+                // Show Upload, Hide Draw
+                dragDropZone.style.display = state.uploadedImg ? 'none' : 'flex';
+                fileMetaBar.style.display = state.uploadedImg ? 'flex' : 'none';
+                drawToolbar.style.display = 'none';
+                traceThresholdGroup.style.display = 'flex';
+                elCanvas.classList.remove('drawing-active');
+
+                // Adjust threshold slider default value depending on alpha vs brightness
+                if (state.uploadedImg) {
+                    traceThresholdSlider.value = state.uploadedImgMeta.hasAlpha ? 60 : 128;
+                    traceThresholdVal.innerText = traceThresholdSlider.value;
+                    traceUploadedImage();
+                } else {
+                    state.activePoints = [];
+                    btnConvert3D.disabled = true;
+                    redraw2DCanvas();
+                }
+            });
+
+            // 2D Drawing Board Interaction
+            elCanvas.addEventListener('mousemove', handleMouseMove);
+            elCanvas.addEventListener('mousedown', handleMouseDown);
+            elCanvas.addEventListener('dblclick', handleDoubleClick);
+            elCanvas.addEventListener('mouseleave', () => {
+                isMouseOverCanvas = false;
+                if (!state.isDrawClosed) redraw2DCanvas();
+            });
+
+            // Clear Button
+            btnClear.addEventListener('click', () => {
+                state.drawPoints = [];
+                state.isDrawClosed = false;
+                state.activePoints = [];
+                updateDrawingStatus();
+                redraw2DCanvas();
+            });
+
+            // Undo Button
+            btnUndo.addEventListener('click', () => {
+                if (state.drawPoints.length > 0 && !state.isDrawClosed) {
+                    state.drawPoints.pop();
+                    updateDrawingStatus();
+                    redraw2DCanvas();
+                }
+            });
+
+            // File Drag & Drop triggers
+            dragDropZone.addEventListener('click', () => fileUploader.click());
+            dragDropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dragDropZone.classList.add('dragover');
+            });
+            dragDropZone.addEventListener('dragleave', () => dragDropZone.classList.remove('dragover'));
+            dragDropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dragDropZone.classList.remove('dragover');
+                if (e.dataTransfer.files.length > 0) {
+                    handleFileSelection(e.dataTransfer.files[0]);
+                }
+            });
+
+            fileUploader.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFileSelection(e.target.files[0]);
+                }
+            });
+
+            fileRemoveBtn.addEventListener('click', () => {
+                state.uploadedImg = null;
+                fileUploader.value = '';
+                dragDropZone.style.display = 'flex';
+                fileMetaBar.style.display = 'none';
+                state.uploadPoints = [];
+                state.activePoints = [];
+                btnConvert3D.disabled = true;
+                redraw2DCanvas();
+            });
+
+            // Threshold slider updates
+            traceThresholdSlider.addEventListener('input', (e) => {
+                traceThresholdVal.innerText = e.target.value;
+                traceUploadedImage();
+            });
+
+            // Convert to 3D Trigger
+            btnConvert3D.addEventListener('click', () => {
+                if (state.activePoints.length < 3) return;
+                extrudePointsTo3D(state.activePoints, true);
+            });
+
+            // Parameter Sliders
+            depthSlider.addEventListener('input', (e) => {
+                state.depth = parseInt(e.target.value, 10);
+                depthVal.innerText = state.depth;
+                update3DGeometry();
+            });
+
+            bevelToggle.addEventListener('change', (e) => {
+                state.bevelEnabled = e.target.checked;
+                bevelSizeGroup.style.opacity = state.bevelEnabled ? '1' : '0.4';
+                bevelSlider.disabled = !state.bevelEnabled;
+                update3DGeometry();
+            });
+
+            bevelSlider.addEventListener('input', (e) => {
+                state.bevelSize = parseInt(e.target.value, 10);
+                bevelVal.innerText = state.bevelSize;
+                update3DGeometry();
+            });
+
+            // Material Selection Cards
+            materialCards.forEach(card => {
+                card.addEventListener('click', () => {
+                    materialCards.forEach(c => c.classList.remove('active'));
+                    card.classList.add('active');
+                    state.materialType = card.dataset.material;
+                    update3DGeometry();
+                });
+            });
+
+            // Color Presets
+            colorPresets.forEach(preset => {
+                preset.addEventListener('click', () => {
+                    colorPresets.forEach(p => p.classList.remove('active'));
+                    preset.classList.add('active');
+                    
+                    const color = preset.dataset.color;
+                    state.modelColor = color;
+                    colorPickerInput.value = color;
+                    customColorPreview.style.backgroundColor = color;
+                    update3DGeometry();
+                });
+            });
+
+            // Custom Color Picker Link
+            customColorBtn.addEventListener('click', () => colorPickerInput.click());
+            colorPickerInput.addEventListener('input', (e) => {
+                colorPresets.forEach(p => p.classList.remove('active'));
+                const color = e.target.value;
+                state.modelColor = color;
+                customColorPreview.style.backgroundColor = color;
+                update3DGeometry();
+            });
+
+            // Export Render Canvas
+            btnExportImage.addEventListener('click', export3DRender);
+        }
+
+        // Triggers upload load workflow
+        function handleFileSelection(file) {
+            if (!file.type.match('image.*')) {
+                alert('Please upload an image file (PNG/JPG/SVG).');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    state.uploadedImg = img;
+                    state.uploadedImgMeta.name = file.name;
+                    state.uploadedImgMeta.width = img.width;
+                    state.uploadedImgMeta.height = img.height;
+                    
+                    // Display details
+                    fileNameDisplay.innerText = file.name;
+                    dragDropZone.style.display = 'none';
+                    fileMetaBar.style.display = 'flex';
+
+                    // Trace image contour outline
+                    // Default sensitivity threshold: transparent alpha gets lower, solid images get 128
+                    setTimeout(() => {
+                        // Scan for alpha
+                        const size = 100;
+                        const canvasCheck = document.createElement('canvas');
+                        canvasCheck.width = size;
+                        canvasCheck.height = size;
+                        const ctxCheck = canvasCheck.getContext('2d');
+                        ctxCheck.drawImage(img, 0, 0, size, size);
+                        const d = ctxCheck.getImageData(0,0,size,size).data;
+                        let alpha = false;
+                        for (let i = 3; i < d.length; i += 4) {
+                            if (d[i] < 220) { alpha = true; break; }
+                        }
+                        
+                        traceThresholdSlider.value = alpha ? 60 : 128;
+                        traceThresholdVal.innerText = traceThresholdSlider.value;
+                        
+                        traceUploadedImage();
+                    }, 50);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Captures WebGL canvas render buffer and triggers file download
+        function export3DRender() {
+            // Temporary hide orbit control widgets or helpers if we have any.
+            // Force rendering just before capture to fill preserveDrawingBuffer
+            renderer.render(scene, camera);
+            
+            const dataUrl = renderer.domElement.toDataURL("image/png");
+            
+            // Anchor download trigger
+            const link = document.createElement('a');
+            link.download = `vectr3d-render-${Date.now()}.png`;
+            link.href = dataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showToast("Render image exported!");
+        }
+
+        /* ----------------------------------------------------
+           8. STARTUP ENTRY POINT
+           ---------------------------------------------------- */
+        window.addEventListener('DOMContentLoaded', () => {
+            elCanvas.classList.add('drawing-active');
+            setupUIHandlers();
+            init3D();
+        });
+    </script>
+</body>
+</html>
